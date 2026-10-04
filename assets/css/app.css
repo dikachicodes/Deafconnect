@@ -995,17 +995,7 @@ textarea[aria-invalid="true"] {
   align-items: flex-start;
   border-bottom: 1px solid #d6e7f0;
 }
-.hero-icon {
-  width: 58px;
-  height: 58px;
-  border-radius: 17px;
-  background: #fff;
-  color: var(--teal);
-  display: grid;
-  place-items: center;
-  font-size: 1.6rem;
-  box-shadow: 0 10px 22px rgba(20, 45, 78, 0.08);
-}
+
 .about-hero h2 {
   font-size: clamp(2rem, 4vw, 2.8rem);
   letter-spacing: -0.04em;
