@@ -1,0 +1,3 @@
+<?php
+require_once __DIR__ . '/../../config/bootstrap.php';requireAdmin();
+$row=$pdo->query('SELECT id,baseline_score,critical_count,serious_count,moderate_count,report_json,created_at FROM audit_reports ORDER BY created_at DESC LIMIT 1')->fetch();if(!$row)jsonResponse(['success'=>true,'report'=>null]);$data=json_decode($row['report_json'],true)?:[];jsonResponse(['success'=>true,'report'=>['id'=>(int)$row['id'],'baseline_score'=>(int)$row['baseline_score'],'critical_count'=>(int)$row['critical_count'],'serious_count'=>(int)$row['serious_count'],'moderate_count'=>(int)$row['moderate_count'],'criteria'=>$data['criteria']??[],'violations'=>$data['violations']??[],'created_at'=>$row['created_at']]]);
