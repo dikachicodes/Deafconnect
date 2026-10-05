@@ -45,3 +45,32 @@ Change the account password before using the project outside a local/demo enviro
 ## Notes for the project report
 
 The supplied prototype says its accessibility status was verified with Lighthouse and axe-DevTools. The PHP backend included here does **not** run those browser auditing engines itself. Instead, it stores the prototype checklist/baseline in MySQL and reminds the administrator to run the live tools on the deployed site before reporting a current score.
+
+
+## AI video transcription and captions
+
+The Video page now uses the Gemini API for real transcription.
+
+### Configure Gemini
+
+1. Copy `config/gemini.example.php` to `config/gemini.php` if needed.
+2. Open `config/gemini.php`.
+3. Replace `YOUR_GEMINI_API_KEY_HERE` with your Gemini API key.
+4. Leave the key in PHP only. Do not put it in `assets/js/` or HTML.
+5. The default model is `gemini-3.8-flash`; change it only if your Gemini account/API documentation specifies another supported model.
+
+The integration uses Google's Files API to upload the video, waits for the uploaded file to become active, then sends it to Gemini for a structured, timestamped transcript. Gemini's current documentation recommends the Files API for larger media and supports video understanding with timestamps.
+
+The application converts the returned segments into WebVTT and attaches the resulting `.vtt` file to the HTML5 video. The transcript panel is generated from the same AI response, and clicking a transcript segment seeks the video to its start time.
+
+### Local upload settings
+
+The application accepts up to 100 MB per video by default. PHP itself must also permit uploads of that size. In XAMPP, check `php.ini` and make sure `upload_max_filesize` and `post_max_size` are large enough (for example, 128M), then restart Apache.
+
+The Gemini Files API temporarily stores uploaded Gemini-side files and automatically deletes them after 48 hours; DeafConnect also attempts to delete the Gemini file after transcription is complete.
+
+### Important
+
+No real Gemini API key is included in this project. The supplied `config/gemini.php` contains only a placeholder.
+
+Gemini API usage may incur quota/charges depending on the Google account/project configuration. Test with short videos first.

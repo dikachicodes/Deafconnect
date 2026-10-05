@@ -2,3 +2,9 @@
 .DS_Store
 Thumbs.db
 .env
+
+config/gemini.php
+uploads/videos/*
+!uploads/videos/.gitkeep
+uploads/captions/*
+!uploads/captions/.gitkeep

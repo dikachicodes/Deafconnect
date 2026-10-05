@@ -123,35 +123,54 @@ $adminLoggedIn = !empty($_SESSION['admin_id']);
 
       <section id="page-video" class="page" aria-labelledby="video-title">
         <div class="page-header">
-          <div><span class="eyebrow compact">Media library</span>
-            <h2 id="video-title">Captioned media</h2>
-            <p>Learn about DeafConnect through visual captions and a readable transcript.</p>
-          </div><span class="status-chip success"><i class="ti ti-subtitles"></i> Captions active</span>
+          <div><span class="eyebrow compact">AI media studio</span>
+            <h2 id="video-title">Automatic captions</h2>
+            <p>Upload a video and DeafConnect will generate a real transcript and synchronised captions for the spoken content.</p>
+          </div><span class="status-chip"><i class="ti ti-sparkles"></i> DeafConnect AI transcription</span>
         </div>
-        <div class="media-layout">
+
+        <section class="ai-upload-card" aria-labelledby="upload-title">
+          <div class="ai-upload-copy">
+            <div class="feature-icon blue"><i class="ti ti-wand"></i></div>
+            <div>
+              <span class="eyebrow compact">Accessible video workflow</span>
+              <h3 id="upload-title">Generate captions from your own video.</h3>
+              <p>Your video is uploaded securely to the PHP server, processed automatically, and returned with a timestamped transcript and WebVTT caption file. The AI service connection stays on the server.</p>
+            </div>
+          </div>
+          <form id="video-form" class="video-upload-form" enctype="multipart/form-data">
+            <label class="file-picker" for="video-file">
+              <i class="ti ti-video-plus"></i>
+              <span><strong id="video-file-name">Choose a video</strong><small>MP4, WebM, MOV, AVI or MPEG · up to 100 MB</small></span>
+              <input id="video-file" name="video" type="file" accept="video/mp4,video/webm,video/quicktime,video/x-msvideo,video/mpeg" required>
+            </label>
+            <button class="btn btn-primary" type="submit" id="transcribe-video"><i class="ti ti-sparkles"></i> Generate AI captions</button>
+          </form>
+          <div id="video-status" class="video-status" role="status" aria-live="polite" aria-atomic="true">
+            <i class="ti ti-info-circle"></i><span>Select a video to begin.</span>
+          </div>
+        </section>
+
+        <div class="media-layout" id="video-workspace" hidden>
           <div>
-            <div class="media-player" role="region" aria-label="Caption demonstration video">
-              <div class="media-glow"></div>
-              <div class="play-ring"><i class="ti ti-player-play-filled"></i></div>
-              <div class="media-placeholder"><span>Caption demonstration</span><small>No audio is required to follow this content.</small></div>
-              <div class="caption-box" id="caption-display" aria-live="polite">Press Play to begin — captions will appear here.</div>
+            <div class="media-player real-media-player" role="region" aria-label="Uploaded captioned video">
+              <video id="video-player" controls preload="metadata" playsinline aria-label="Uploaded video with generated captions">
+                <track id="video-captions" kind="captions" srclang="en" label="AI-generated captions" default>
+              </video>
+              <div class="caption-box" id="caption-display" aria-live="polite">Captions will appear here when the video plays.</div>
             </div>
             <div class="media-controls">
-              <button class="icon-btn primary" id="play-btn" onclick="togglePlay()" aria-label="Play video" aria-pressed="false"><i class="ti ti-player-play"></i> Play</button>
-              <button class="icon-btn" id="cc-btn" onclick="toggleCC()" aria-label="Toggle captions" aria-pressed="true"><i class="ti ti-subtitles"></i> CC On</button>
-              <span class="live-status" id="cc-status"><i class="ti ti-circle-check"></i> Caption display active</span>
+              <button class="icon-btn" id="cc-btn" type="button" onclick="toggleCC()" aria-label="Toggle captions" aria-pressed="true"><i class="ti ti-subtitles"></i> CC On</button>
+              <span class="live-status" id="cc-status"><i class="ti ti-circle-check"></i> AI-generated captions active</span>
+              <span class="live-status video-language" id="video-language"></span>
             </div>
           </div>
           <aside class="transcript-card">
-            <button class="transcript-toggle" id="ts-toggle" onclick="toggleTranscript()" aria-expanded="true" aria-controls="ts-body"><span><i class="ti ti-align-left"></i> Full transcript</span><i class="ti ti-chevron-down" id="ts-chev"></i></button>
+            <button class="transcript-toggle" id="ts-toggle" onclick="toggleTranscript()" aria-expanded="true" aria-controls="ts-body"><span><i class="ti ti-align-left"></i> AI transcript</span><i class="ti ti-chevron-down" id="ts-chev"></i></button>
             <div id="ts-body" class="transcript-body">
-              <p><span>00:00</span>Welcome to DeafConnect — a platform built specifically for Deaf and Hard-of-Hearing communities.</p>
-              <p><span>00:08</span>Every video includes synchronised captions using the WebVTT open standard.</p>
-              <p><span>00:17</span>You can read the full transcript without playing the video at all — no audio is required.</p>
-              <p><span>00:26</span>Our booking system lets you schedule BSL interpreters, audiology appointments and community sessions.</p>
-              <p><span>00:35</span>All notifications appear as colour-coded visual banners.</p>
-              <p><span>00:44</span>Every interactive element is designed to remain operable using keyboard navigation.</p>
-              <p><span>00:53</span>Thank you for using DeafConnect. Accessibility is built into every primary interaction.</p>
+              <div id="transcript-content">
+                <p class="empty-state">Your generated transcript will appear here.</p>
+              </div>
             </div>
           </aside>
         </div>

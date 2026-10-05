@@ -48,6 +48,24 @@ CREATE TABLE IF NOT EXISTS bookings (
   INDEX idx_bookings_date (preferred_date)
 ) ENGINE=InnoDB;
 
+
+
+CREATE TABLE IF NOT EXISTS videos (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  original_filename VARCHAR(180) NOT NULL,
+  stored_filename VARCHAR(255) NOT NULL,
+  mime_type VARCHAR(100) NOT NULL,
+  file_size BIGINT UNSIGNED NOT NULL,
+  video_path VARCHAR(500) NOT NULL,
+  vtt_path VARCHAR(500) NOT NULL,
+  transcript_json JSON NOT NULL,
+  transcription_status ENUM('uploaded','processing','completed','failed') NOT NULL DEFAULT 'uploaded',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_videos_status (transcription_status),
+  INDEX idx_videos_created (created_at)
+) ENGINE=InnoDB;
+
 CREATE TABLE IF NOT EXISTS audit_reports (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   baseline_score TINYINT UNSIGNED NOT NULL,

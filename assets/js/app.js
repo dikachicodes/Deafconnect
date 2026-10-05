@@ -5,21 +5,11 @@
     ccOn: true,
     playing: false,
     tsOpen: true,
-    capIdx: 0,
-    capTimer: null,
+    transcript: [],
+    captionTrack: null,
     contacts: [],
     activeContact: null
   };
-
-  const captions = [
-    'Welcome to DeafConnect — a platform built for Deaf and Hard-of-Hearing communities.',
-    'Every video includes synchronised captions using the WebVTT open standard.',
-    'You can read the full transcript without playing the video at all — no audio is required.',
-    'Our booking system lets you schedule BSL interpreters, audiology appointments and community sessions.',
-    'All notifications appear as colour-coded visual banners.',
-    'Every interactive element is designed to remain operable using keyboard navigation.',
-    'Thank you for using DeafConnect. Accessibility is built into every primary interaction.'
-  ];
 
   function escapeHtml(value) {
     const div = document.createElement('div');
@@ -58,7 +48,9 @@
 
   async function api(url, options = {}) {
     const opts = { ...options, headers: { ...(options.headers || {}), 'X-CSRF-Token': window.DEAFCONNECT.csrf } };
-    if (opts.body && typeof opts.body !== 'string') {
+    // File uploads use FormData. Leave its body and Content-Type untouched so
+    // the browser can add the required multipart boundary automatically.
+    if (opts.body && typeof opts.body !== 'string' && !(opts.body instanceof FormData)) {
       opts.headers['Content-Type'] = 'application/json';
       opts.body = JSON.stringify(opts.body);
     }
@@ -175,36 +167,120 @@
     finally { button.disabled = false; button.innerHTML = '<i class="ti ti-send"></i> Submit booking request'; }
   }
 
-  window.togglePlay = function () {
-    state.playing = !state.playing;
-    const btn = document.getElementById('play-btn');
-    btn.innerHTML = state.playing ? '<i class="ti ti-player-pause"></i> Pause' : '<i class="ti ti-player-play"></i> Play';
-    btn.setAttribute('aria-pressed', state.playing ? 'true' : 'false');
-    btn.setAttribute('aria-label', state.playing ? 'Pause video' : 'Play video');
-    if (state.playing) advanceCaption(); else clearTimeout(state.capTimer);
-  };
-  function advanceCaption() {
-    if (!state.playing) return;
-    if (state.capIdx >= captions.length) {
-      state.capIdx = 0; state.playing = false;
-      document.getElementById('play-btn').innerHTML = '<i class="ti ti-player-play"></i> Play';
-      document.getElementById('play-btn').setAttribute('aria-pressed', 'false');
-      document.getElementById('caption-display').textContent = 'Media ended. Press Play to replay.';
+  function renderTranscript() {
+    const container = document.getElementById('transcript-content');
+    if (!container) return;
+    if (!state.transcript.length) {
+      container.innerHTML = '<p class="empty-state">No spoken dialogue was detected in this video.</p>';
       return;
     }
-    if (state.ccOn) document.getElementById('caption-display').textContent = captions[state.capIdx];
-    state.capIdx += 1;
-    state.capTimer = setTimeout(advanceCaption, 3500);
+    container.innerHTML = state.transcript.map((segment, index) => `
+      <button class="transcript-segment" type="button" data-segment-index="${index}" aria-label="Jump to ${formatTime(segment.start)}">
+        <span>${formatTime(segment.start)}</span><strong>${escapeHtml(segment.text)}</strong>
+      </button>`).join('');
+    container.querySelectorAll('.transcript-segment').forEach((button) => {
+      button.addEventListener('click', () => {
+        const index = Number(button.dataset.segmentIndex);
+        const video = document.getElementById('video-player');
+        if (state.transcript[index] && video) {
+          video.currentTime = state.transcript[index].start;
+          video.play().catch(() => {});
+        }
+      });
+    });
   }
+
+  function formatTime(seconds) {
+    const total = Math.max(0, Math.floor(Number(seconds) || 0));
+    const minutes = Math.floor(total / 60);
+    const secs = total % 60;
+    return `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  }
+
+  function updateActiveTranscript() {
+    const video = document.getElementById('video-player');
+    if (!video || !state.transcript.length) return;
+    const current = video.currentTime;
+    let active = -1;
+    state.transcript.forEach((segment, index) => {
+      if (current >= segment.start && current < segment.end) active = index;
+    });
+    document.querySelectorAll('.transcript-segment').forEach((button, index) => {
+      const isActive = index === active;
+      button.classList.toggle('active', isActive);
+      button.setAttribute('aria-current', isActive ? 'true' : 'false');
+    });
+    const caption = document.getElementById('caption-display');
+    if (caption && state.ccOn) {
+      caption.textContent = active >= 0 ? state.transcript[active].text : 'Captions will appear here when the video plays.';
+    }
+  }
+
+  function setVideoStatus(message, type = 'info') {
+    const status = document.getElementById('video-status');
+    if (!status) return;
+    const icons = { info: 'ti-info-circle', working: 'ti-loader-2', success: 'ti-circle-check', error: 'ti-alert-circle' };
+    status.className = `video-status ${type}`;
+    status.innerHTML = `<i class="ti ${icons[type] || icons.info}"></i><span>${escapeHtml(message)}</span>`;
+  }
+
+  async function transcribeVideo(event) {
+    event.preventDefault();
+    const input = document.getElementById('video-file');
+    const button = document.getElementById('transcribe-video');
+    const file = input?.files?.[0];
+    if (!file) {
+      showAlert('warning', 'Choose a video before generating captions.');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('video', file);
+    button.disabled = true;
+    input.disabled = true;
+    button.innerHTML = '<i class="ti ti-loader-2"></i> Transcribing…';
+    setVideoStatus('Uploading the video securely…', 'working');
+
+    try {
+      setVideoStatus('Processing the video and generating timestamped captions. This may take a little while.', 'working');
+      const data = await api('api/video/transcribe.php', { method: 'POST', body: formData });
+
+      state.transcript = Array.isArray(data.transcript) ? data.transcript : [];
+      const player = document.getElementById('video-player');
+      const track = document.getElementById('video-captions');
+      player.src = data.video_url;
+      track.src = data.vtt_url;
+      track.default = true;
+      player.load();
+
+      document.getElementById('video-workspace').hidden = false;
+      document.getElementById('video-language').textContent = data.language ? `Language: ${data.language}` : '';
+      renderTranscript();
+      setVideoStatus(data.message, 'success');
+      showAlert('success', 'AI transcription and synchronized captions are ready.');
+      document.getElementById('video-workspace').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (error) {
+      setVideoStatus(error.message, 'error');
+      showAlert('error', error.message);
+    } finally {
+      button.disabled = false;
+      input.disabled = false;
+      button.innerHTML = '<i class="ti ti-sparkles"></i> Generate AI captions';
+    }
+  }
+
   window.toggleCC = function () {
     state.ccOn = !state.ccOn;
     const button = document.getElementById('cc-btn');
     const status = document.getElementById('cc-status');
     const display = document.getElementById('caption-display');
+    const video = document.getElementById('video-player');
+    const track = video?.textTracks?.[0];
+    if (track) track.mode = state.ccOn ? 'showing' : 'disabled';
     button.classList.toggle('active', state.ccOn);
     button.innerHTML = `<i class="ti ti-subtitles"></i> ${state.ccOn ? 'CC On' : 'CC Off'}`;
     button.setAttribute('aria-pressed', state.ccOn ? 'true' : 'false');
-    status.innerHTML = state.ccOn ? '<i class="ti ti-circle-check"></i> Caption display active' : '<i class="ti ti-circle-x"></i> Captions hidden';
+    status.innerHTML = state.ccOn ? '<i class="ti ti-circle-check"></i> AI-generated captions active' : '<i class="ti ti-circle-x"></i> Captions hidden';
     display.style.display = state.ccOn ? 'block' : 'none';
   };
   window.toggleTranscript = function () {
@@ -215,6 +291,21 @@
   };
 
   document.addEventListener('keydown', (event) => { if (event.key === 'Escape') dismissAlert(); });
+  document.getElementById('video-form')?.addEventListener('submit', transcribeVideo);
+  document.getElementById('video-file')?.addEventListener('change', (event) => {
+    const file = event.target.files?.[0];
+    document.getElementById('video-file-name').textContent = file ? file.name : 'Choose a video';
+    if (file) setVideoStatus(`Ready to upload: ${file.name}`, 'info');
+  });
+  document.getElementById('video-player')?.addEventListener('loadedmetadata', () => {
+    const track = document.getElementById('video-player').textTracks?.[0];
+    if (track) {
+      track.mode = state.ccOn ? 'showing' : 'disabled';
+      state.captionTrack = track;
+    }
+  });
+  document.getElementById('video-player')?.addEventListener('timeupdate', updateActiveTranscript);
+  document.getElementById('video-player')?.addEventListener('ended', updateActiveTranscript);
   document.getElementById('booking-form')?.addEventListener('submit', submitBooking);
   document.getElementById('send-msg')?.addEventListener('click', sendMessage);
   document.getElementById('msg-input')?.addEventListener('keydown', (event) => { if (event.key === 'Enter') { event.preventDefault(); sendMessage(); } });
